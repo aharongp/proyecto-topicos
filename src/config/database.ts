@@ -11,6 +11,6 @@ export async function connectDatabase(uri: string): Promise<typeof mongoose> {
     await mongoose.connect(uri);
     return mongoose;
   } catch (error) {
-    throw new Error(`Failed to connect to MongoDB: ${(error as Error).message}`);
+    throw new Error(`Error al conectarse a MongoDB:  ${(error as Error).message}`);
   }
 }
