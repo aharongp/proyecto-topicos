@@ -26,7 +26,7 @@ export class AuthService {
     const normalizedEmail = data.email.trim().toLowerCase();
     const existing = await this.userModel.findOne({ email: normalizedEmail }).exec();
     if (existing) {
-      throw new BadRequestError("Email is already registered", "EMAIL_EXISTS");
+      throw new BadRequestError("Correo ya registrado previamente", "CORREO EXISTE");
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -42,12 +42,12 @@ export class AuthService {
     const normalizedEmail = data.email.trim().toLowerCase();
     const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
     if (!user) {
-      throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
+      throw new UnauthorizedError("Credenciales Invalidas", "CREDENCIALES INVALIDAS");
     }
 
     const isValid = await bcrypt.compare(data.password, user.password);
     if (!isValid) {
-      throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
+      throw new UnauthorizedError("Credenciales Invalidas", "CREDENCIALES INVALIDAS");
     }
 
     return this.generateToken(user);
@@ -57,7 +57,7 @@ export class AuthService {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as jwt.JwtPayload;
       if (!decoded.sub || !decoded.email) {
-        throw new Error("Token does not contain required fields");
+        throw new Error("El token no contiene campos obligatorios");
       }
 
       return {
@@ -67,7 +67,7 @@ export class AuthService {
         exp: Number(decoded.exp ?? 0),
       };
     } catch (error) {
-      throw new UnauthorizedError("Invalid or expired token", "INVALID_TOKEN");
+      throw new UnauthorizedError("Token expirado o no valido, "TOKEN INVALIDO");
     }
   }
 
@@ -75,7 +75,7 @@ export class AuthService {
     const payload = { email: user.email };
     const options: SignOptions = {
       subject: user.id,
-      expiresIn: this.jwtExpiration as SignOptions["expiresIn"],
+      expiresIn: this.jwtExpiration as SignOptions["expira en"],
     };
     return jwt.sign(payload, this.jwtSecret, options);
   }
