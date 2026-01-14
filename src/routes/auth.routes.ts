@@ -10,7 +10,7 @@ export function createAuthRouter(authService: AuthService): Router {
     try {
       const { email, password } = req.body ?? {};
       if (!email || !password) {
-        throw new BadRequestError("Email and password are required", "VALIDATION_ERROR");
+        throw new BadRequestError("Se requieren correo electrónico y contraseña", "VALIDATION_ERROR");
       }
 
       const user = await authService.register({ email, password });
@@ -31,7 +31,7 @@ export function createAuthRouter(authService: AuthService): Router {
     try {
       const { email, password } = req.body ?? {};
       if (!email || !password) {
-        throw new BadRequestError("Email and password are required", "VALIDATION_ERROR");
+        throw new BadRequestError("Se requieren correo electrónico y contraseña", "VALIDATION_ERROR");
       }
 
       const token = await authService.login({ email, password });
