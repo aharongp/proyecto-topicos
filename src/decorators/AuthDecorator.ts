@@ -17,5 +17,6 @@ export class DecoratorAuthentication implements IImageHandler {
     context.request.user = {email: payload.email };
 
     return this.interno.handle(context);
+    return this.interno.handle(payload);
   }
 }
