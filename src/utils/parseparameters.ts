@@ -15,7 +15,7 @@ export function parseResizeParams(parameters: Record<string, unknown>): ResizePa
     const width = parseOptionalPositiveInteger(parameters.width, "width");
     const height = parseOptionalPositiveInteger(parameters.height, "height");
     if (!width && !height) {
-        throw new BadRequestError("Width or height must be specified", "INVALID_PARAMETER");
+        throw new BadRequestError("Se debe especificar el ancho o la altura", "INVALID_PARAMETER");
     }
     return {
         width,
