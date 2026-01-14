@@ -37,7 +37,7 @@ export class ImageService {
         stream.webp();
         break;
       default:
-        throw new BadRequestError("Unsupported output format", "INVALID_FORMAT");
+        throw new BadRequestError("Formato de salida no compatible", "INVALID_FORMAT");
     }
     const converted = await stream.toBuffer();
     const contentType = `image/${parameters.format}`;
@@ -61,7 +61,7 @@ export class ImageService {
         stream.grayscale();
         break;
       default:
-        throw new BadRequestError("Unsupported filter requested", "INVALID_FILTER");
+        throw new BadRequestError("Filtro no compatible solicitado", "INVALID_FILTER");
     }
     return stream.toBuffer();
   }
@@ -106,7 +106,7 @@ export class ImageService {
           break;
         }
         default:
-          throw new BadRequestError(`Unsupported operation in pipeline: ${operation.type}`, "INVALID_OPERATION");
+          throw new BadRequestError(`Operación no compatible: ${operation.type}`, "INVALID_OPERATION");
       }
     }
 
