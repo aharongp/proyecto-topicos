@@ -54,7 +54,7 @@ export class PipelineHandler implements IImageHandler {
           };
         }
         default:
-          throw new BadRequestError(`Unsupported operation: ${operation.type}`, "INVALID_PIPELINE_OPERATION");
+          throw new BadRequestError(`Operación no compatible: ${operation.type}`, "INVALID_PIPELINE_OPERATION");
       }
     });
 
