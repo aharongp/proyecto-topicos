@@ -12,25 +12,25 @@ export class AppError extends Error {
 }
 
 export class BadRequestError extends AppError {
-  constructor(message: string, code = "BAD_REQUEST") {
+  constructor(message: string, code = "SOLICITUD INCORRECTA") {
     super(400, code, message);
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message: string, code = "UNAUTHORIZED") {
+  constructor(message: string, code = "NO AUTORIZADO") {
     super(401, code, message);
   }
 }
 
 export class UnsupportedMediaError extends AppError {
-  constructor(message: string, code = "UNSUPPORTED_MEDIA_TYPE") {
+  constructor(message: string, code = "TIPO DE DATO NO COMPATIBLE") {
     super(415, code, message);
   }
 }
 
 export class EntityTooLargeError extends AppError {
-  constructor(message: string, code = "PAYLOAD_TOO_LARGE") {
+  constructor(message: string, code = "CARGA ÚTIL DEMASIADO GRANDE") {
     super(413, code, message);
   }
 }
