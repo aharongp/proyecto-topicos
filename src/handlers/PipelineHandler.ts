@@ -1,112 +1,70 @@
 import { BadRequestError } from "../errors/AppError";
 import { ImageService } from "../services/ImageService";
-import type { ImageHandlerContext, ImageHandlerResult } from "../types";
+import type { ImageHandlerContext, PipelineOperation, ImageHandlerResult } from "../types";
 import { IImageHandler } from "./IImageHandler";
 import {
-  assertImageProvided,
-  ensureFileSizeWithinLimit,
+  parseOperations,
   normalizeFilename,
-  parseAngle,
-  parseFilter,
-  parseFormat,
-  parseFit,
-  parseNonNegativeInt,
-  parseOptionalPositiveInt,
-  parsePositiveInt,
-  parsePositiveNumber,
+  getExtensionFromMime,
+  ensureImageUploaded,
+  verifySizeAllowed,
 } from "../utils/validators";
+import { parseFilterParams, parseFormatParams, parseCropParams, parseResizeParams, parseRotationParams } from "../utils/parseparameters";
 
-interface OperationInput {
-  type: unknown;
-  params?: Record<string, unknown>;
-}
 
 export class PipelineHandler implements IImageHandler {
   constructor(private readonly imageService: ImageService) {}
 
   public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
     const { file, body } = context;
-    assertImageProvided(file);
-    ensureFileSizeWithinLimit(file);
+    ensureImageUploaded(file);
+    verifySizeAllowed(file);
 
-    const rawOperations = this.parseOperationsInput(body.operations);
-    if (rawOperations.length === 0) {
-      throw new BadRequestError("Pipeline requires at least one operation", "INVALID_PIPELINE");
-    }
+    const operations = parseOperations(body.operations);
 
-    const validatedOperations = rawOperations.map((operation) => {
-      const type = String(operation.type);
-      const params = operation.params ?? {};
-      switch (type) {
+
+    const operationsValidated = operations.map((operation) => {
+      switch (operation.type) {
         case "resize": {
-          const width = parseOptionalPositiveInt(params.width, "width");
-          const height = parseOptionalPositiveInt(params.height, "height");
-          if (!width && !height) {
-            throw new BadRequestError(
-              "Resize operation requires width or height",
-              "INVALID_PIPELINE_OPERATION"
-            );
-          }
           return {
-            type,
-            params: {
-              width,
-              height,
-              fit: parseFit(params.fit),
-            },
+            type: "resize",
+            parameters: parseResizeParams(operation.parameters),
           };
         }
         case "crop":
           return {
-            type,
-            params: {
-              left: parseNonNegativeInt(params.left, "left"),
-              top: parseNonNegativeInt(params.top, "top"),
-              width: parsePositiveInt(params.width, "width"),
-              height: parsePositiveInt(params.height, "height"),
-            },
+            type: "crop",
+            parameters: parseCropParams(operation.parameters),
           };
-        case "format":
+        case "format": {
           return {
-            type,
-            params: {
-              format: parseFormat(params.format),
-            },
+            type: "format",
+            parameters: parseFormatParams(operation.parameters),
           };
+        }
         case "rotate":
           return {
-            type,
-            params: {
-              angle: parseAngle(params.angle),
-            },
+            type: "rotate",
+            parameters: parseRotationParams(operation.parameters),
           };
         case "filter": {
-          const filter = parseFilter(params.filter);
-          let value: number | undefined;
-          if (params.value !== undefined) {
-            value = parsePositiveNumber(params.value, "value");
-          }
           return {
-            type,
-            params: {
-              filter,
-              value,
-            },
+            type: "filter",
+            parameters: parseFilterParams(operation.parameters),
           };
         }
         default:
-          throw new BadRequestError(`Unsupported operation type: ${type}`, "INVALID_PIPELINE_OPERATION");
+          throw new BadRequestError(`Unsupported operation: ${operation.type}`, "INVALID_PIPELINE_OPERATION");
       }
     });
 
-    const { buffer, contentType } = await this.imageService.applyPipeline(
+    const { buffer, contentType } = await this.imageService.processPipeline(
       file.buffer,
-      validatedOperations,
+      operationsValidated as PipelineOperation[],
       file.mimetype
     );
 
-    const extension = contentType.split("/").pop() ?? "jpeg";
-    const filename = normalizeFilename(file.originalname, extension);
+    const filename = normalizeFilename(file.originalname, getExtensionFromMime(file.mimetype));
 
     return {
       buffer,
@@ -115,23 +73,4 @@ export class PipelineHandler implements IImageHandler {
     };
   }
 
-  private parseOperationsInput(input: unknown): OperationInput[] {
-    if (typeof input === "string") {
-      try {
-        const parsed = JSON.parse(input) as unknown;
-        return this.parseOperationsInput(parsed);
-      } catch (error) {
-        throw new BadRequestError(
-          `Invalid JSON in operations: ${(error as Error).message}`,
-          "INVALID_PIPELINE_FORMAT"
-        );
-      }
-    }
-
-    if (!Array.isArray(input)) {
-      throw new BadRequestError("Operations must be an array", "INVALID_PIPELINE_FORMAT");
-    }
-
-    return input as OperationInput[];
-  }
 }

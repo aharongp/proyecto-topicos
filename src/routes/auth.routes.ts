@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { AuthService } from "../services/AuthService";
 import { BadRequestError } from "../errors/AppError";
-import type { ApiResponse } from "../types";
+import { ApiResponse } from "../types";
 
 export function createAuthRouter(authService: AuthService): Router {
   const router = Router();

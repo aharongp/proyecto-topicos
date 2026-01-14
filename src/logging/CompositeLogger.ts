@@ -1,9 +1,10 @@
-import { EntradaRegistro, IRegistrador } from "./ILogger";
+import { LogEntry, ILogger } from "./ILogger";
 
-export class RegistradorCompuesto implements IRegistrador {
-  constructor(private readonly registradores: IRegistrador[]) {}
+export class CompositeLogger implements ILogger {
+  constructor(private readonly loggers: ILogger[]) {}
 
-  public async registrar(entrada: EntradaRegistro): Promise<void> {
-    await Promise.all(this.registradores.map((registrador) => registrador.registrar(entrada)));
+  public async log(entry: LogEntry): Promise<void> {
+    await Promise.all(this.loggers.map((logger) => logger.log(entry)));
   }
 }
+

@@ -2,10 +2,11 @@ import { ImageService } from "../services/ImageService";
 import type { ImageHandlerContext, ImageHandlerResult } from "../types";
 import { IImageHandler } from "./IImageHandler";
 import {
-  assertImageProvided,
-  ensureFileSizeWithinLimit,
+  ensureImageUploaded,
+  getExtensionFromMime,
   normalizeFilename,
   parseFormat,
+  verifySizeAllowed,
 } from "../utils/validators";
 
 export class FormatHandler implements IImageHandler {
@@ -13,12 +14,12 @@ export class FormatHandler implements IImageHandler {
 
   public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
     const { file, body } = context;
-    assertImageProvided(file);
-    ensureFileSizeWithinLimit(file);
+    ensureImageUploaded(file);
+    verifySizeAllowed(file);
 
     const format = parseFormat(body.format);
     const { buffer, contentType } = await this.imageService.convertFormat(file.buffer, { format });
-    const filename = normalizeFilename(file.originalname, format);
+    const filename = normalizeFilename(file.originalname, getExtensionFromMime(contentType));
 
     return {
       buffer,

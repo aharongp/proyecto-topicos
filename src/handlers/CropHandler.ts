@@ -1,41 +1,30 @@
-import { ServicioImagenes } from "../services/ImageService";
-import type { ContextoManejadorImagen, ResultadoManejadorImagen } from "../types";
-import { IManejadorImagen } from "./IImageHandler";
+import { ImageService } from "../services/ImageService";
+import type { ImageHandlerContext, ImageHandlerResult } from "../types";
+import { IImageHandler } from "./IImageHandler";
 import {
-  asegurarImagenCargada,
-  verificarTamanoPermitido,
-  obtenerExtensionDesdeMime,
-  normalizarNombreArchivo,
-  parsearEnteroNoNegativo,
-  parsearEnteroPositivo,
+  ensureImageUploaded,
+  verifySizeAllowed,
+  getExtensionFromMime,
+  normalizeFilename,
 } from "../utils/validators";
+import { parseCropParams } from "../utils/parseparameters";
 
-export class ManejadorRecorte implements IManejadorImagen {
-  constructor(private readonly servicioImagenes: ServicioImagenes) {}
+export class CropHandler implements IImageHandler {
+  constructor(private readonly imageService: ImageService) {}
 
-  public async manejar(contexto: ContextoManejadorImagen): Promise<ResultadoManejadorImagen> {
-    const { archivo, cuerpo } = contexto;
-    asegurarImagenCargada(archivo);
-    verificarTamanoPermitido(archivo);
+  public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
+    const { file, body } = context;
+    ensureImageUploaded(file);
+    verifySizeAllowed(file);
 
-    const izquierda = parsearEnteroNoNegativo(cuerpo.left, "left");
-    const arriba = parsearEnteroNoNegativo(cuerpo.top, "top");
-    const ancho = parsearEnteroPositivo(cuerpo.width, "width");
-    const alto = parsearEnteroPositivo(cuerpo.height, "height");
+    const buffer = await this.imageService.crop(file.buffer, parseCropParams(body));
 
-    const buffer = await this.servicioImagenes.recortar(archivo.buffer, {
-      izquierda,
-      arriba,
-      ancho,
-      alto,
-    });
-    const extension = obtenerExtensionDesdeMime(archivo.mimetype);
-    const nombreArchivo = normalizarNombreArchivo(archivo.originalname, extension);
+    const filename = normalizeFilename(file.originalname, getExtensionFromMime(file.mimetype));
 
     return {
       buffer,
-      tipoContenido: archivo.mimetype,
-      nombreArchivo,
+      contentType: file.mimetype,
+      filename,
     };
   }
 }

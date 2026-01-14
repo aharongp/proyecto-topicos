@@ -1,18 +1,18 @@
 import { Router } from "express";
 import type { RequestHandler } from "express";
 import { uploadSingleImage } from "../middleware/upload";
-import { ImageService } from "../services/ImageService";
+import { IImageHandler  } from "../handlers/IImageHandler";
 import { AuthService } from "../services/AuthService";
-import type { ILogger } from "../logging/ILogger";
-import { ResizeHandler } from "../handlers/ResizeHandler";
-import { CropHandler } from "../handlers/CropHandler";
-import { FormatHandler } from "../handlers/FormatHandler";
-import { RotateHandler } from "../handlers/RotateHandler";
-import { FilterHandler } from "../handlers/FilterHandler";
-import { PipelineHandler } from "../handlers/PipelineHandler";
-import { AuthDecorator } from "../decorators/AuthDecorator";
 import { LoggingDecorator } from "../decorators/LoggingDecorator";
-import type { IImageHandler } from "../handlers/IImageHandler";
+import { DecoratorAuthentication } from "../decorators/AuthDecorator";
+import { ILogger } from "../logging/ILogger";
+import { ImageService } from "../services/ImageService";
+import { CropHandler } from "../handlers/CropHandler";
+import { RotateHandler } from "../handlers/RotateHandler";
+import { ResizeHandler } from "../handlers/ResizeHandler";
+import { FormatHandler } from "../handlers/FormatHandler";
+import { PipelineHandler } from "../handlers/PipelineHandler";
+import { FilterHandler } from "../handlers/FilterHandler";
 
 function createEndpointHandler(handler: IImageHandler, endpoint: string): RequestHandler {
   return async (req, res, next) => {
@@ -35,7 +35,7 @@ function createEndpointHandler(handler: IImageHandler, endpoint: string): Reques
 }
 
 function decorateHandler(core: IImageHandler, authService: AuthService, logger: ILogger): IImageHandler {
-  return new LoggingDecorator(new AuthDecorator(core, authService), logger);
+  return new LoggingDecorator(new DecoratorAuthentication(core, authService), logger);
 }
 
 export function createImageRouter(

@@ -1,37 +1,38 @@
-import type { ContextoManejadorImagen, ResultadoManejadorImagen } from "../types";
-import { IManejadorImagen } from "../handlers/IImageHandler";
-import type { IRegistrador } from "../logging/ILogger";
-import { sanearParametros } from "../utils/validators";
+import type { ImageHandlerContext, ImageHandlerResult } from "../types";
+import { IImageHandler } from "../handlers/IImageHandler";
+import type { ILogger } from "../logging/ILogger";
+import { sanitizeParameters } from "../utils/validators";
 
-export class DecoradorRegistro implements IManejadorImagen {
-  constructor(private readonly interno: IManejadorImagen, private readonly registrador: IRegistrador) {}
+export class LoggingDecorator implements IImageHandler {
+  constructor(private readonly interno: IImageHandler, private readonly logger: ILogger) {}
 
-  public async manejar(contexto: ContextoManejadorImagen): Promise<ResultadoManejadorImagen> {
-    const inicio = Date.now();
+  public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
+    const start = Date.now();
     try {
-      const resultado = await this.interno.manejar(contexto);
-      await this.registrador.registrar({
-        fecha: new Date().toISOString(),
-        nivel: "info",
-        usuario: contexto.solicitud.usuario?.correo ?? contexto.solicitud.usuario?.id,
-        endpoint: contexto.endpoint,
-        parametros: sanearParametros(contexto.cuerpo),
-        duracion: Date.now() - inicio,
-        resultado: "exito",
+      const result = await this.interno.handle(context);
+      await this.logger.log({
+        timestamp: new Date().toISOString(),
+        level: "info",
+        user: context.request.user?.email,
+        endpoint: context.endpoint,
+        parameters: sanitizeParameters(context.body),
+        duration: Date.now() - start,
+        result: "success",
       });
-      return resultado;
+      return result;
     } catch (error) {
-      await this.registrador.registrar({
-        fecha: new Date().toISOString(),
-        nivel: "error",
-        usuario: contexto.solicitud.usuario?.correo ?? contexto.solicitud.usuario?.id,
-        endpoint: contexto.endpoint,
-        parametros: sanearParametros(contexto.cuerpo),
-        duracion: Date.now() - inicio,
-        resultado: "error",
-        mensaje: (error as Error).message,
+      await this.logger.log({
+        timestamp: new Date().toISOString(),
+        level: "error",
+        user: context.request.user?.email,
+        endpoint: context.endpoint,
+        parameters: sanitizeParameters(context.body),
+        duration: Date.now() - start,
+        result: "error",
+        message: (error as Error).message,
       });
       throw error;
     }
   }
 }
+

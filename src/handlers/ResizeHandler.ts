@@ -1,45 +1,29 @@
-import { BadRequestError } from "../errors/AppError";
-import { ServicioImagenes } from "../services/ImageService";
-import type { ContextoManejadorImagen, ResultadoManejadorImagen } from "../types";
-import { IManejadorImagen } from "./IImageHandler";
+import { ImageService } from "../services/ImageService";
+import type { ImageHandlerContext, ImageHandlerResult } from "../types";
+import { IImageHandler } from "./IImageHandler";
 import {
-  asegurarImagenCargada,
-  verificarTamanoPermitido,
-  obtenerExtensionDesdeMime,
-  normalizarNombreArchivo,
-  parsearAjuste,
-  parsearEnteroPositivoOpcional,
+  ensureImageUploaded,
+  verifySizeAllowed,
+  getExtensionFromMime,
+  normalizeFilename,
 } from "../utils/validators";
+import { parseResizeParams } from "../utils/parseparameters";
 
-export class ManejadorRedimension implements IManejadorImagen {
-  constructor(private readonly servicioImagenes: ServicioImagenes) {}
+export class ResizeHandler implements IImageHandler {
+  constructor(private readonly imageService: ImageService) {}
 
-  public async manejar(contexto: ContextoManejadorImagen): Promise<ResultadoManejadorImagen> {
-    const { archivo, cuerpo } = contexto;
-    asegurarImagenCargada(archivo);
-    verificarTamanoPermitido(archivo);
+  public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
+    const { file, body } = context;
+    ensureImageUploaded(file);
+    verifySizeAllowed(file);
 
-    const ancho = parsearEnteroPositivoOpcional(cuerpo.width, "width");
-    const alto = parsearEnteroPositivoOpcional(cuerpo.height, "height");
-
-    if (!ancho && !alto) {
-      throw new BadRequestError("Se debe indicar el ancho o el alto", "MISSING_DIMENSIONS");
-    }
-
-    const ajuste = parsearAjuste(cuerpo.fit);
-
-    const buffer = await this.servicioImagenes.redimensionar(archivo.buffer, {
-      ancho,
-      alto,
-      ajuste,
-    });
-    const extension = obtenerExtensionDesdeMime(archivo.mimetype);
-    const nombreArchivo = normalizarNombreArchivo(archivo.originalname, extension);
+    const buffer = await this.imageService.resize(file.buffer, parseResizeParams(body));
+    const filename = normalizeFilename(file.originalname, getExtensionFromMime(file.mimetype));
 
     return {
       buffer,
-      tipoContenido: archivo.mimetype,
-      nombreArchivo,
+      contentType: file.mimetype,
+      filename,
     };
   }
 }

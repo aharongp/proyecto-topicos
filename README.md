@@ -81,8 +81,10 @@ src/
     AppError.ts
   types/
     index.ts
+
   utils/
     validators.ts
+    parseparameters.ts
 ```
 
 ## Uso general

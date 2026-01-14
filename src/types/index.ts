@@ -1,49 +1,89 @@
 import type { Request } from "express";
 
-export interface RespuestaApi<T> {
-  exito: boolean;
-  datos?: T;
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
   error?: string;
-  fecha: string;
+  timestamp: string;
 }
 
-export interface CargaTokenAutenticacion {
-  sub: string;
-  correo: string;
-  iat: number;
-  exp: number;
+export interface UserRequest {
+  email: string;
 }
 
-export interface UsuarioSolicitud {
-  id: string;
-  correo: string;
-}
-
-export interface ResultadoManejadorImagen {
+export interface ImageHandlerResult {
   buffer: Buffer;
-  tipoContenido: string;
-  nombreArchivo: string;
+  contentType: string;
+  filename: string;
 }
 
-export interface ContextoManejadorImagen {
-  solicitud: Request;
-  archivo?: Express.Multer.File;
+export interface ImageHandlerContext {
+  request: Request;
+  file?: Express.Multer.File;
   endpoint: string;
-  cuerpo: Record<string, unknown>;
-  consulta: Record<string, unknown>;
+  body: Record<string, unknown>;
+  query: Record<string, unknown>;
 }
 
 declare module "express-serve-static-core" {
   interface Request {
-    usuario?: UsuarioSolicitud;
+    user?: UserRequest;
   }
 }
 
-export type AjusteImagen = "cover" | "contain" | "fill" | "inside" | "outside";
+export const ALLOWED_FITS = ["cover", "contain", "fill", "inside", "outside"] as const;
+export type ImageFit = typeof ALLOWED_FITS[number];
 
-export type TipoFiltroImagen = "blur" | "sharpen" | "grayscale";
+export const ALLOWED_FILTERS = ["blur", "sharpen", "grayscale"] as const;
+export type ImageFilterType = typeof ALLOWED_FILTERS[number];
 
-export interface OperacionCanal {
-  tipo: string;
-  parametros?: Record<string, unknown>;
+export const ALLOWED_FORMATS = new Set<string>(["jpeg", "png", "webp"]);
+
+export const ALLOWED_ANGLES = new Set<number>([0, 90, 180, 270, 360]);
+
+export interface PipelineOperation {
+  type: string;
+  parameters: Record<string, unknown>;
 }
+
+export const ALLOWED_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/tiff",
+]);
+
+export interface ResizeParameters {
+  width?: number;
+  height?: number;
+  fit?: ImageFit;
+}
+
+export interface CropParameters {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface FormatParameters {
+  format: string;
+}
+
+export interface RotationParameters {
+  angle: number;
+}
+
+export interface FilterParameters {
+  filter: ImageFilterType;
+  value?: number;
+}
+
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  iat: number;
+  exp: number;
+}
+

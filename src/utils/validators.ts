@@ -1,154 +1,163 @@
 import { BadRequestError } from "../errors/AppError";
-import { AjusteImagen, TipoFiltroImagen } from "../types";
+import { ImageFit, ImageFilterType, ALLOWED_FORMATS, ALLOWED_MIMES, ALLOWED_FITS, ALLOWED_FILTERS, ALLOWED_ANGLES, PipelineOperation } from "../types";
 
-const FORMATOS_PERMITIDOS = new Map<string, string>([
-  ["jpeg", "jpeg"],
-  ["jpg", "jpeg"],
-  ["png", "png"],
-  ["webp", "webp"],
-]);
 
-const MIMES_PERMITIDOS = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-  "image/tiff",
-]);
 
-export function obtenerTamanoMaximoArchivo(): number {
-  const defecto = 10 * 1024 * 1024;
-  const crudo = process.env.MAX_FILE_SIZE_BYTES;
-  if (!crudo) {
-    return defecto;
+export function parsePositiveNumber(value: unknown, name: string): number {
+  const converted = Number(value);
+  if (!Number.isFinite(converted) || converted <= 0) {
+    throw new BadRequestError(`${name} must be a positive number`, "INVALID_PARAMETER");
   }
-  const convertido = Number(crudo);
-  if (!Number.isFinite(convertido) || convertido <= 0) {
-    throw new BadRequestError("MAX_FILE_SIZE_BYTES debe ser un número positivo", "INVALID_CONFIGURATION");
-  }
-  return convertido;
+  return converted;
 }
 
-export function asegurarImagenCargada(archivo?: Express.Multer.File): asserts archivo {
-  if (!archivo) {
-    throw new BadRequestError("El archivo de imagen es obligatorio", "IMAGE_REQUIRED");
+export function parsePositiveInteger(value: unknown, name: string): number {
+  const converted = Number(value);
+  if (!Number.isInteger(converted) || converted <= 0) {
+    throw new BadRequestError(`${name} must be a positive integer`, "INVALID_PARAMETER");
   }
+  return converted;
 }
 
-export function validarTipoMime(mime: string): void {
-  if (!MIMES_PERMITIDOS.has(mime)) {
-    throw new BadRequestError("Tipo MIME de imagen no soportado", "INVALID_MIME_TYPE");
+export function parseNonNegativeInteger(value: unknown, name: string): number {
+  const converted = Number(value);
+  if (!Number.isInteger(converted) || converted < 0) {
+    throw new BadRequestError(`${name} must be a non-negative integer`, "INVALID_PARAMETER");
   }
+  return converted;
 }
 
-export function parsearEnteroPositivo(valor: unknown, nombre: string): number {
-  const convertido = Number(valor);
-  if (!Number.isInteger(convertido) || convertido <= 0) {
-    throw new BadRequestError(`${nombre} debe ser un entero positivo`, "INVALID_PARAMETER");
-  }
-  return convertido;
-}
-
-export function parsearEnteroNoNegativo(valor: unknown, nombre: string): number {
-  const convertido = Number(valor);
-  if (!Number.isInteger(convertido) || convertido < 0) {
-    throw new BadRequestError(`${nombre} debe ser un entero no negativo`, "INVALID_PARAMETER");
-  }
-  return convertido;
-}
-
-export function parsearEnteroPositivoOpcional(valor: unknown, nombre: string): number | undefined {
-  if (valor === undefined || valor === null || valor === "") {
+export function parseOptionalPositiveInteger(value: unknown, name: string): number | undefined {
+  if (value === undefined || value === null || value === "") {
     return undefined;
   }
-  return parsearEnteroPositivo(valor, nombre);
+  return parsePositiveInteger(value, name);
 }
 
-export function parsearAjuste(valor: unknown): AjusteImagen | undefined {
-  if (!valor) {
-    return undefined;
+export function getMaxFileSize(): number {
+  const defaultValue = 10 * 1024 * 1024; //10MB
+  const raw = process.env.MAX_FILE_SIZE_BYTES;
+  if (!raw) {
+    return defaultValue;
   }
-  const ajuste = String(valor);
-  const permitidos: AjusteImagen[] = ["cover", "contain", "fill", "inside", "outside"];
-  if (!permitidos.includes(ajuste as AjusteImagen)) {
-    throw new BadRequestError("Ajuste inválido", "INVALID_PARAMETER");
-  }
-  return ajuste as AjusteImagen;
+  return parsePositiveNumber(raw, "MAX_FILE_SIZE_BYTES");
 }
 
-export function parsearAngulo(valor: unknown): number {
-  const angulo = Number(valor);
-  const permitidos = new Set([0, 90, 180, 270, 360]);
-  if (!permitidos.has(angulo)) {
-    throw new BadRequestError("El ángulo debe ser 0, 90, 180, 270 o 360", "INVALID_PARAMETER");
-  }
-  return angulo;
-}
-
-export function parsearFormato(valor: unknown): string {
-  const formato = String(valor ?? "").toLowerCase();
-  const normalizado = FORMATOS_PERMITIDOS.get(formato);
-  if (!normalizado) {
-    throw new BadRequestError("Formato de salida no soportado", "INVALID_FORMAT");
-  }
-  return normalizado;
-}
-
-export function parsearFiltro(valor: unknown): TipoFiltroImagen {
-  const filtro = String(valor ?? "").toLowerCase() as TipoFiltroImagen;
-  const permitidos: TipoFiltroImagen[] = ["blur", "sharpen", "grayscale"];
-  if (!permitidos.includes(filtro)) {
-    throw new BadRequestError("Tipo de filtro no soportado", "INVALID_FILTER");
-  }
-  return filtro;
-}
-
-export function parsearNumeroPositivo(valor: unknown, nombre: string): number {
-  const convertido = Number(valor);
-  if (!Number.isFinite(convertido) || convertido <= 0) {
-    throw new BadRequestError(`${nombre} debe ser un número positivo`, "INVALID_PARAMETER");
-  }
-  return convertido;
-}
-
-export function obtenerExtensionDesdeMime(mime: string): string {
-  switch (mime) {
-    case "image/jpeg":
-      return "jpeg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    case "image/avif":
-      return "avif";
-    case "image/tiff":
-      return "tiff";
-    default:
-      throw new BadRequestError("Tipo MIME no soportado", "INVALID_MIME_TYPE");
+export function ensureImageUploaded(file?: Express.Multer.File): asserts file {
+  if (!file) {
+    throw new BadRequestError("Image file is required", "IMAGE_REQUIRED");
   }
 }
 
-export function sanearParametros(parametros: Record<string, unknown>): Record<string, unknown> {
-  const copia: Record<string, unknown> = {};
-  for (const [clave, valor] of Object.entries(parametros)) {
-    if (valor instanceof Buffer) {
-      copia[clave] = `[buffer:${valor.length}]`;
-    } else if (Array.isArray(valor)) {
-      copia[clave] = valor.map((elemento) => (elemento instanceof Buffer ? "[buffer]" : elemento));
+export function validateMimeType(mime: string): void {
+  if (!ALLOWED_MIMES.has(mime)) {
+    throw new BadRequestError("Unsupported image MIME type", "INVALID_MIME_TYPE");
+  }
+}
+
+export function getExtensionFromMime(mime: string): string {
+  if (ALLOWED_MIMES.has(mime)) {
+    return mime.split("/")[1];
+  }
+  throw new BadRequestError("Unsupported MIME type", "INVALID_MIME_TYPE");
+}
+
+export function verifySizeAllowed(file: Express.Multer.File): void {
+  if (file.size > getMaxFileSize()) {
+    throw new BadRequestError("Image exceeds allowed size", "IMAGE_TOO_LARGE");
+  }
+}
+
+export function normalizeFilename(originalName: string, extension: string): string {
+  if (!originalName || originalName.trim() === "") {
+    return `processed-file.${extension}`;
+  }
+
+  const parts = originalName.split(".");
+  const base = parts.length > 1
+    ? parts.slice(0, -1).join(".")
+    : originalName;
+
+  let cleanBase = base
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9.-]/g, "");
+
+  cleanBase ??= "processed-file";
+
+  return `${cleanBase}.${extension}`;
+}
+
+export function parseFit(value: unknown): ImageFit {
+  if (!value) {
+    return "cover";
+  }
+  const fit: ImageFit = String(value) as ImageFit;
+  if (!ALLOWED_FITS.includes(fit)) {
+    throw new BadRequestError("Invalid fit", "INVALID_ADJUSTMENT");
+  }
+  return fit;
+}
+
+export function parseAngle(value: unknown): number {
+  const angle: number = Number(value);
+  if (!ALLOWED_ANGLES.has(angle)) {
+    throw new BadRequestError("Angle must be 0, 90, 180, 270 or 360", "INVALID_PARAMETER");
+  }
+  return angle;
+}
+
+export function parseFormat(value: unknown): string {
+  const format = String(value ?? "").toLowerCase();
+  if (!ALLOWED_FORMATS.has(format)) {
+    throw new BadRequestError("Unsupported output format", "INVALID_FORMAT");
+  }
+  return format;
+}
+
+export function parseFilter(value: unknown): ImageFilterType {
+  const filter = String(value ?? "").toLowerCase();
+  if (!ALLOWED_FILTERS.includes(filter as ImageFilterType)) {
+    throw new BadRequestError("Unsupported filter type", "INVALID_FILTER");
+  }
+  return filter as ImageFilterType;
+}
+
+export function sanitizeParameters(parameters: Record<string, unknown>): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parameters)) {
+    if (value instanceof Buffer) {
+      copy[key] = `[buffer:${value.length}]`;
+    } else if (Array.isArray(value)) {
+      copy[key] = value.map((element) => (element instanceof Buffer ? "[buffer]" : element));
     } else {
-      copia[clave] = valor;
+      copy[key] = value;
     }
   }
-  return copia;
+  return copy;
 }
 
-export function verificarTamanoPermitido(archivo: Express.Multer.File): void {
-  if (archivo.size > obtenerTamanoMaximoArchivo()) {
-    throw new BadRequestError("La imagen supera el tamaño permitido", "IMAGE_TOO_LARGE");
+export function parseOperations(input: unknown): PipelineOperation[] {
+  let operations = input;
+  let attempts = 0;
+
+  while (typeof operations === "string" && attempts < 2) {
+    try {
+      operations = JSON.parse(operations);
+      attempts++;
+    } catch (error) {
+      throw new BadRequestError("Invalid JSON format", "INVALID_PIPELINE_FORMAT");
+    }
   }
-}
 
-export function normalizarNombreArchivo(nombreOriginal: string, extension: string): string {
-  const base = nombreOriginal?.split(".").slice(0, -1).join(".") || "imagen-procesada";
-  return `${base}.${extension}`;
+  if (!Array.isArray(operations)) {
+    throw new BadRequestError("Operations must be a non-empty array", "INVALID_PIPELINE_FORMAT");
+  }
+
+  if (operations.length === 0) {
+    throw new BadRequestError("Operations must be a non-empty array", "INVALID_PIPELINE_FORMAT");
+  }
+
+  return operations as PipelineOperation[];
 }

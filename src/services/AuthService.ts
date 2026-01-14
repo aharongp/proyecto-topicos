@@ -2,81 +2,83 @@ import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import type { Model } from "mongoose";
 import { BadRequestError, UnauthorizedError } from "../errors/AppError";
-import type { CargaTokenAutenticacion } from "../types";
+import type { JwtPayload } from "../types";
 import type { User, UserDocument } from "../models/User";
 
-export interface DatosRegistro {
-  correo: string;
-  contrasena: string;
+export interface RegistrationData {
+  email: string;
+  password: string;
 }
 
-export interface DatosInicioSesion {
-  correo: string;
-  contrasena: string;
+export interface LoginData {
+  email: string;
+  password: string;
 }
 
-export class ServicioAutenticacion {
+export class AuthService {
   constructor(
-    private readonly modeloUsuario: Model<User>,
-    private readonly secretoJwt: string,
-    private readonly expiracionJwt: string | number
+    private readonly userModel: Model<User>,
+    private readonly jwtSecret: string,
+    private readonly jwtExpiration: string | number
   ) {}
 
-  public async registrar(datos: DatosRegistro): Promise<UserDocument> {
-    const correoNormalizado = datos.correo.trim().toLowerCase();
-    const existente = await this.modeloUsuario.findOne({ email: correoNormalizado }).exec();
-    if (existente) {
-      throw new BadRequestError("El correo ya está registrado", "EMAIL_EXISTS");
+  public async register(data: RegistrationData): Promise<UserDocument> {
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const existing = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (existing) {
+      throw new BadRequestError("Email is already registered", "EMAIL_EXISTS");
     }
 
-    const contrasenaHasheada = await bcrypt.hash(datos.contrasena, 10);
-    const usuario = await this.modeloUsuario.create({
-      email: correoNormalizado,
-      password: contrasenaHasheada,
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const user = await this.userModel.create({
+      email: normalizedEmail,
+      password: hashedPassword,
     });
 
-    return usuario;
+    return user;
   }
 
-  public async iniciarSesion(datos: DatosInicioSesion): Promise<string> {
-    const correoNormalizado = datos.correo.trim().toLowerCase();
-    const usuario = await this.modeloUsuario.findOne({ email: correoNormalizado }).exec();
-    if (!usuario) {
-      throw new UnauthorizedError("Credenciales inválidas", "INVALID_CREDENTIALS");
+  public async login(data: LoginData): Promise<string> {
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const user = await this.userModel.findOne({ email: normalizedEmail }).exec();
+    if (!user) {
+      throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
     }
 
-    const esValido = await bcrypt.compare(datos.contrasena, usuario.password);
-    if (!esValido) {
-      throw new UnauthorizedError("Credenciales inválidas", "INVALID_CREDENTIALS");
+    const isValid = await bcrypt.compare(data.password, user.password);
+    if (!isValid) {
+      throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
     }
 
-    return this.generarToken(usuario);
+    return this.generateToken(user);
   }
 
-  public async verificarToken(token: string): Promise<CargaTokenAutenticacion> {
+  public async verifyToken(token: string): Promise<JwtPayload> {
     try {
-      const decodificado = jwt.verify(token, this.secretoJwt) as jwt.JwtPayload;
-      if (!decodificado.sub || !decodificado.email) {
-        throw new Error("El token no contiene los campos requeridos");
+      const decoded = jwt.verify(token, this.jwtSecret) as jwt.JwtPayload;
+      if (!decoded.sub || !decoded.email) {
+        throw new Error("Token does not contain required fields");
       }
 
       return {
-        sub: String(decodificado.sub),
-        correo: String(decodificado.email),
-        iat: Number(decodificado.iat ?? 0),
-        exp: Number(decodificado.exp ?? 0),
+        sub: String(decoded.sub),
+        email: String(decoded.email),
+        iat: Number(decoded.iat ?? 0),
+        exp: Number(decoded.exp ?? 0),
       };
     } catch (error) {
-      throw new UnauthorizedError("Token inválido o expirado", "INVALID_TOKEN");
+      throw new UnauthorizedError("Invalid or expired token", "INVALID_TOKEN");
     }
   }
 
-  private generarToken(usuario: UserDocument): string {
-    const carga = { email: usuario.email };
-    const opciones: SignOptions = {
-      subject: usuario.id,
-      expiresIn: this.expiracionJwt as SignOptions["expiresIn"],
+  private generateToken(user: UserDocument): string {
+    const payload = { email: user.email };
+    const options: SignOptions = {
+      subject: user.id,
+      expiresIn: this.jwtExpiration as SignOptions["expiresIn"],
     };
-    return jwt.sign(carga, this.secretoJwt, opciones);
+    return jwt.sign(payload, this.jwtSecret, options);
   }
+
+
 }

@@ -8,12 +8,11 @@ import { AuthService } from "./services/AuthService";
 import { ImageService } from "./services/ImageService";
 import { createAuthRouter } from "./routes/auth.routes";
 import { createImageRouter } from "./routes/image.routes";
-import { FileLogger } from "./logging/FileLogger";
+import { BadRequestError, EntityTooLargeError, UnauthorizedError, UnsupportedMediaError } from "./errors/AppError";
+import { ILogger } from "./logging/ILogger";
 import { CompositeLogger } from "./logging/CompositeLogger";
+import { FileLogger } from "./logging/FileLogger";
 import { MongoLogger } from "./logging/MongoLogger";
-import type { ILogger } from "./logging/ILogger";
-import { AppError, EntityTooLargeError, UnsupportedMediaError } from "./errors/AppError";
-
 dotenv.config();
 
 const PORT = Number(process.env.PORT ?? 3000);
@@ -57,7 +56,8 @@ async function bootstrap(): Promise<void> {
   app.use("/images", createImageRouter(imageService, authService, logger));
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (err instanceof AppError) {
+    
+    if (err instanceof BadRequestError || err instanceof UnauthorizedError ) {
       res.status(err.statusCode).json({
         error: err.message,
         code: err.code,
@@ -65,6 +65,7 @@ async function bootstrap(): Promise<void> {
       });
       return;
     }
+
 
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {

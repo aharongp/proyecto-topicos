@@ -1,16 +1,17 @@
-export type NivelRegistro = "info" | "error";
+export type LogLevel = "info" | "error";
 
-export interface EntradaRegistro {
-  fecha: string;
-  nivel: NivelRegistro;
-  usuario?: string;
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  user?: string;
   endpoint: string;
-  parametros: Record<string, unknown>;
-  duracion: number;
-  resultado: "exito" | "error";
-  mensaje?: string;
+  parameters: Record<string, unknown>;
+  duration: number;
+  result: "success" | "error";
+  message?: string;
 }
 
-export interface IRegistrador {
-  registrar(entrada: EntradaRegistro): Promise<void>;
+export interface ILogger {
+  log(entry: LogEntry): Promise<void>;
 }
+

@@ -1,21 +1,21 @@
 import { UnauthorizedError } from "../errors/AppError";
-import type { ContextoManejadorImagen, ResultadoManejadorImagen } from "../types";
-import { ServicioAutenticacion } from "../services/AuthService";
-import { IManejadorImagen } from "../handlers/IImageHandler";
+import type { ImageHandlerContext, ImageHandlerResult } from "../types";
+import { AuthService } from "../services/AuthService";
+import { IImageHandler } from "../handlers/IImageHandler";
 
-export class DecoradorAutenticacion implements IManejadorImagen {
-  constructor(private readonly interno: IManejadorImagen, private readonly servicioAutenticacion: ServicioAutenticacion) {}
+export class DecoratorAuthentication implements IImageHandler {
+  constructor(private readonly interno: IImageHandler, private readonly authService: AuthService) {}
 
-  public async manejar(contexto: ContextoManejadorImagen): Promise<ResultadoManejadorImagen> {
-    const autorizacion = contexto.solicitud.headers.authorization;
-    if (!autorizacion || !autorizacion.startsWith("Bearer ")) {
-      throw new UnauthorizedError("Falta el encabezado de autorización", "TOKEN_MISSING");
+  public async handle(context: ImageHandlerContext): Promise<ImageHandlerResult> {
+    const authorization = context.request.headers.authorization;
+    if (!authorization || !authorization.startsWith("Bearer ")) {
+      throw new UnauthorizedError("Authorization header is missing or invalid", "TOKEN_MISSING");
     }
 
-    const token = autorizacion.substring("Bearer ".length);
-    const carga = await this.servicioAutenticacion.verificarToken(token);
-    contexto.solicitud.usuario = { id: carga.sub, correo: carga.correo };
+    const token = authorization.substring("Bearer ".length);
+    const payload = await this.authService.verifyToken(token);
+    context.request.user = {email: payload.email };
 
-    return this.interno.manejar(contexto);
+    return this.interno.handle(context);
   }
 }

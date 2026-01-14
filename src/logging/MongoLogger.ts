@@ -1,14 +1,14 @@
 import { connection } from "mongoose";
-import { EntradaRegistro, IRegistrador } from "./ILogger";
+import { LogEntry, ILogger } from "./ILogger";
 
-export class RegistradorMongo implements IRegistrador {
-  constructor(private readonly nombreColeccion = "logs") {}
+export class MongoLogger implements ILogger {
+  constructor(private readonly collectionName = "logs") {}
 
-  public async registrar(entrada: EntradaRegistro): Promise<void> {
+  public async log(entry: LogEntry): Promise<void> {
     if (connection.readyState !== 1) {
       return;
     }
 
-    await connection.collection(this.nombreColeccion).insertOne(entrada);
+    await connection.collection(this.collectionName).insertOne(entry);
   }
 }

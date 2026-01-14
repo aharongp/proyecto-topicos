@@ -1,151 +1,116 @@
-import sharp, { FitEnum } from "sharp";
+import sharp from "sharp";
 import { BadRequestError } from "../errors/AppError";
-import type { AjusteImagen, OperacionCanal, TipoFiltroImagen } from "../types";
+import type { PipelineOperation, FilterParameters, FormatParameters, CropParameters, ResizeParameters, RotationParameters } from "../types";
 
-export interface ParametrosRedimension {
-  ancho?: number;
-  alto?: number;
-  ajuste?: AjusteImagen;
-}
-
-export interface ParametrosRecorte {
-  izquierda: number;
-  arriba: number;
-  ancho: number;
-  alto: number;
-}
-
-export interface ParametrosFormato {
-  formato: string;
-}
-
-export interface ParametrosRotacion {
-  angulo: number;
-}
-
-export interface ParametrosFiltro {
-  filtro: TipoFiltroImagen;
-  valor?: number;
-}
-
-export class ServicioImagenes {
-  public async redimensionar(buffer: Buffer, parametros: ParametrosRedimension): Promise<Buffer> {
-    const flujo = sharp(buffer);
-    flujo.resize({
-      width: parametros.ancho,
-      height: parametros.alto,
-      fit: (parametros.ajuste ?? "cover") as keyof FitEnum,
+export class ImageService {
+  public async resize(buffer: Buffer, parameters: ResizeParameters): Promise<Buffer> {
+    const stream = sharp(buffer);
+    stream.resize({
+      width: parameters.width,
+      height: parameters.height,
+      fit: parameters.fit,
     });
-    return flujo.toBuffer();
+    return stream.toBuffer();
   }
 
-  public async recortar(buffer: Buffer, parametros: ParametrosRecorte): Promise<Buffer> {
+  public async crop(buffer: Buffer, parameters: CropParameters): Promise<Buffer> {
     return sharp(buffer)
       .extract({
-        left: parametros.izquierda,
-        top: parametros.arriba,
-        width: parametros.ancho,
-        height: parametros.alto,
+        left: parameters.left,
+        top: parameters.top,
+        width: parameters.width,
+        height: parameters.height,
       })
       .toBuffer();
   }
 
-  public async convertirFormato(buffer: Buffer, parametros: ParametrosFormato): Promise<{ buffer: Buffer; tipoContenido: string }> {
-    const flujo = sharp(buffer);
-    switch (parametros.formato) {
+  public async convertFormat(buffer: Buffer, parameters: FormatParameters): Promise<{ buffer: Buffer; contentType: string }> {
+    const stream = sharp(buffer);
+    switch (parameters.format) {
       case "jpeg":
-        flujo.jpeg();
+        stream.jpeg();
         break;
       case "png":
-        flujo.png();
+        stream.png();
         break;
       case "webp":
-        flujo.webp();
+        stream.webp();
         break;
       default:
-        throw new BadRequestError("Formato de salida no soportado", "INVALID_FORMAT");
+        throw new BadRequestError("Unsupported output format", "INVALID_FORMAT");
     }
-    const convertido = await flujo.toBuffer();
-    const tipoContenido = `image/${parametros.formato}`;
-    return { buffer: convertido, tipoContenido };
+    const converted = await stream.toBuffer();
+    const contentType = `image/${parameters.format}`;
+    return { buffer: converted, contentType };
   }
 
-  public async rotar(buffer: Buffer, parametros: ParametrosRotacion): Promise<Buffer> {
-    return sharp(buffer).rotate(parametros.angulo).toBuffer();
+  public async rotate(buffer: Buffer, parameters: RotationParameters): Promise<Buffer> {
+    return sharp(buffer).rotate(parameters.angle).toBuffer();
   }
 
-  public async aplicarFiltro(buffer: Buffer, parametros: ParametrosFiltro): Promise<Buffer> {
-    const flujo = sharp(buffer);
-    switch (parametros.filtro) {
+  public async applyFilter(buffer: Buffer, parameters: FilterParameters): Promise<Buffer> {
+    const stream = sharp(buffer);
+    switch (parameters.filter) {
       case "blur":
-        flujo.blur(parametros.valor ?? 5);
+        stream.blur(parameters.value);
         break;
       case "sharpen":
-        flujo.sharpen();
+        stream.sharpen();
         break;
       case "grayscale":
-        flujo.grayscale();
+        stream.grayscale();
         break;
       default:
-        throw new BadRequestError("Filtro solicitado no soportado", "INVALID_FILTER");
+        throw new BadRequestError("Unsupported filter requested", "INVALID_FILTER");
     }
-    return flujo.toBuffer();
+    return stream.toBuffer();
   }
 
-  public async aplicarCanal(
+  public async processPipeline(
     buffer: Buffer,
-    operaciones: OperacionCanal[],
-    tipoContenidoInicial: string
-  ): Promise<{ buffer: Buffer; tipoContenido: string }> {
-    let bufferTrabajo = buffer;
-    let tipoContenidoActual = tipoContenidoInicial;
+    operations: PipelineOperation[],
+    initialContentType: string
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    let workingBuffer = buffer;
+    let currentContentType = initialContentType;
 
-    for (const operacion of operaciones) {
-      switch (operacion.tipo) {
+    for (const operation of operations) {
+      switch (operation.type) {
         case "resize": {
-          const { width, height, fit } = operacion.parametros ?? {};
-          bufferTrabajo = await this.redimensionar(bufferTrabajo, {
-            ancho: width as number | undefined,
-            alto: height as number | undefined,
-            ajuste: fit as AjusteImagen | undefined,
-          });
-          break;
-        }
-        case "crop": {
-          const { left, top, width, height } = operacion.parametros ?? {};
-          bufferTrabajo = await this.recortar(bufferTrabajo, {
-            izquierda: left as number,
-            arriba: top as number,
-            ancho: width as number,
-            alto: height as number,
+         const params = operation.parameters as unknown as ResizeParameters;
+          workingBuffer = await this.resize(workingBuffer, {
+            width: params.width,
+            height: params.height,
+            fit: params.fit,
           });
           break;
         }
         case "format": {
-          const { format } = operacion.parametros ?? {};
-          const resultado = await this.convertirFormato(bufferTrabajo, { formato: String(format) });
-          bufferTrabajo = resultado.buffer;
-          tipoContenidoActual = resultado.tipoContenido;
+          const params = operation.parameters as unknown as FormatParameters;
+          const result = await this.convertFormat(workingBuffer, { format: params.format });
+          workingBuffer = result.buffer;
+          currentContentType = result.contentType;
           break;
         }
         case "rotate": {
-          const { angle } = operacion.parametros ?? {};
-          bufferTrabajo = await this.rotar(bufferTrabajo, { angulo: angle as number });
+          const params = operation.parameters as unknown as RotationParameters;
+          workingBuffer = await this.rotate(workingBuffer, { angle: params.angle });
           break;
         }
         case "filter": {
-          const { filter, value } = operacion.parametros ?? {};
-          bufferTrabajo = await this.aplicarFiltro(bufferTrabajo, {
-            filtro: String(filter) as ParametrosFiltro["filtro"],
-            valor: (value as number | undefined) ?? undefined,
+          const params = operation.parameters as unknown as FilterParameters;
+          workingBuffer = await this.applyFilter(workingBuffer, {
+            filter: params.filter,
+            value: params.value,
           });
           break;
         }
         default:
-          throw new BadRequestError(`Operación no soportada en la canalización: ${operacion.tipo}`, "INVALID_OPERATION");
+          throw new BadRequestError(`Unsupported operation in pipeline: ${operation.type}`, "INVALID_OPERATION");
       }
     }
 
-    return { buffer: bufferTrabajo, tipoContenido: tipoContenidoActual };
+    return { buffer: workingBuffer, contentType: currentContentType };
   }
+
 }

@@ -1,5 +1,5 @@
-import type { ContextoManejadorImagen, ResultadoManejadorImagen } from "../types";
+import type { ImageHandlerContext, ImageHandlerResult } from "../types";
 
-export interface IManejadorImagen {
-  manejar(contexto: ContextoManejadorImagen): Promise<ResultadoManejadorImagen>;
+export interface IImageHandler {
+  handle(context: ImageHandlerContext): Promise<ImageHandlerResult>;
 }
