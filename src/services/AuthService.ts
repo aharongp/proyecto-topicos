@@ -67,7 +67,7 @@ export class AuthService {
         exp: Number(decoded.exp ?? 0),
       };
     } catch (error) {
-      throw new UnauthorizedError("Token expirado o no valido, "TOKEN INVALIDO");
+      throw new UnauthorizedError("Token expirado o no valido", "TOKEN INVALIDO");
     }
   }
 
@@ -75,7 +75,7 @@ export class AuthService {
     const payload = { email: user.email };
     const options: SignOptions = {
       subject: user.id,
-      expiresIn: this.jwtExpiration as SignOptions["expira en"],
+      expiresIn: this.jwtExpiration as SignOptions["expiresIn"],
     };
     return jwt.sign(payload, this.jwtSecret, options);
   }
